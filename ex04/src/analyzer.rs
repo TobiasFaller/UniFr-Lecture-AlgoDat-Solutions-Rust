@@ -2,9 +2,11 @@ extern crate zip;
 
 use std;
 
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::result::Result;
-use std::vec::Vec;
 use std::string::String;
+use std::vec::Vec;
 
 #[derive(Debug)]
 pub enum Error {
@@ -63,7 +65,9 @@ pub fn read_info_from_file(name: &str) -> Result<Vec<(String, String)>, Error> {
 	let file = try!(std::fs::File::open(name));
 	let mut archive = try!(zip::ZipArchive::new(file));
 	
-	let mut cities: Vec<(String, String)> = Vec::new(); 
+	let mut cities: Vec<(String, String)> = Vec::new();
+	cities.reserve(20000);
+	
 	for index in 0 .. archive.len() {
 		let entry = try!(archive.by_index(index));
 		let buf = std::io::BufReader::new(entry);
@@ -90,6 +94,60 @@ fn read_lines<R: std::io::BufRead>(buf: R, cities: &mut Vec<(String, String)>) -
 	Ok(())
 }
 
-pub fn compute_most_frequent_city_by_sorting(cities: &mut Vec<(String, String)>) {
- 
+pub fn compute_most_frequent_city_by_sorting(mut cities: Vec<(String, String)>) -> Vec<(String, usize)> {
+	let length = cities.len();
+	if length == 0 {
+		return Vec::new();
+	}
+	
+	cities.sort_by(|a, b| a.0.cmp(&b.0));
+	
+	let mut names: Vec<(String, usize)> = Vec::new();
+	let mut last_name: &str = &cities[0].0;
+	let mut count: usize = 1;
+	
+	for city in cities.iter().skip(1) {
+		if city.0 == last_name {
+			count += 1;
+		} else {
+			names.push((last_name.to_owned(), count));
+			last_name = &city.0;
+			count = 1
+		}
+	}
+	
+	names.push((cities[length - 1].0.to_owned(), count));
+	names.sort_by(|a, b| b.1.cmp(&a.1));
+	
+	return names;
+}
+
+pub fn compute_most_frequent_city_by_map<'a>(cities: &'a Vec<(String, String)>) -> Vec<(String, usize)> {
+	let length = cities.len();
+	if length == 0 {
+		return Vec::new();
+	}
+	
+	let mut map: HashMap<&str, usize> = HashMap::new();
+	for city in cities {
+		let name: &str = &city.0;
+		
+		match map.entry(name) {
+			Entry::Occupied(mut o) => {
+				let new_value = o.get() + 1;
+				o.insert(new_value);
+			},
+			Entry::Vacant(v) => {
+				v.insert(1);
+			}
+		}
+	}
+	
+	let mut names: Vec<(String, usize)> = Vec::new();
+	for (name, count) in map.drain() {
+		names.push((name.to_owned(), count));
+	}
+	names.sort_by(|a, b| b.1.cmp(&a.1));
+	
+	return names;
 }
