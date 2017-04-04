@@ -122,7 +122,7 @@ pub fn compute_most_frequent_city_by_sorting(mut cities: Vec<(String, String)>) 
 	return names;
 }
 
-pub fn compute_most_frequent_city_by_map<'a>(cities: &'a Vec<(String, String)>) -> Vec<(String, usize)> {
+pub fn compute_most_frequent_city_by_map(cities: &Vec<(String, String)>) -> Vec<(String, usize)> {
 	let length = cities.len();
 	if length == 0 {
 		return Vec::new();
@@ -147,6 +147,77 @@ pub fn compute_most_frequent_city_by_map<'a>(cities: &'a Vec<(String, String)>) 
 	for (name, count) in map.drain() {
 		names.push((name.to_owned(), count));
 	}
+	names.sort_by(|a, b| b.1.cmp(&a.1));
+	
+	return names;
+}
+
+pub fn compute_most_frequent_city_by_sorting_in_de(mut cities: Vec<(String, String)>) -> Vec<(String, usize)> {
+	let length = cities.len();
+	if length == 0 {
+		return Vec::new();
+	}
+	
+	cities.sort_by(|a, b| a.0.cmp(&b.0));
+	
+	let mut names: Vec<(String, usize)> = Vec::new();
+	let mut last_name: &str = &cities[0].0;
+	let mut count: usize = 1;
+	let mut in_de: bool = &cities[0].0 == "DE";
+	
+	for city in cities.iter().skip(1) {
+		if city.0 == last_name {
+			count += 1;
+			in_de |= city.1 == "DE";
+		} else {
+			if in_de {
+				names.push((last_name.to_owned(), count));
+			}
+			
+			last_name = &city.0;
+			count = 1;
+			in_de = city.1 == "DE";
+		}
+	}
+	
+	if in_de || cities[length - 1].1 == "DE" {
+		names.push((cities[length - 1].0.to_owned(), count));
+	}
+	
+	names.sort_by(|a, b| b.1.cmp(&a.1));
+	
+	return names;
+}
+
+pub fn compute_most_frequent_city_by_map_in_de<'a>(cities: &'a Vec<(String, String)>) -> Vec<(String, usize)> {
+	let length = cities.len();
+	if length == 0 {
+		return Vec::new();
+	}
+	
+	let mut map: HashMap<&str, (usize, bool)> = HashMap::new();
+	for city in cities {
+		let name: &str = &city.0;
+		
+		match map.entry(name) {
+			Entry::Occupied(mut o) => {
+				let old_value = o.get_mut();
+				old_value.0 += 1;
+				old_value.1 |= city.1 == "DE";
+			},
+			Entry::Vacant(v) => {
+				v.insert((1, city.1 == "DE"));
+			}
+		}
+	}
+	
+	let mut names: Vec<(String, usize)> = Vec::new();
+	for (name, (count, in_de)) in map.drain() {
+		if in_de {
+			names.push((name.to_owned(), count));
+		}
+	}
+	
 	names.sort_by(|a, b| b.1.cmp(&a.1));
 	
 	return names;

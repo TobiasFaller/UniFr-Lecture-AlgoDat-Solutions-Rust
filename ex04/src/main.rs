@@ -5,7 +5,9 @@ mod analyzer;
 
 use analyzer::read_info_from_file;
 use analyzer::compute_most_frequent_city_by_sorting;
+use analyzer::compute_most_frequent_city_by_sorting_in_de;
 use analyzer::compute_most_frequent_city_by_map;
+use analyzer::compute_most_frequent_city_by_map_in_de;
 
 use getopts::Options;
 use std::env;
@@ -53,6 +55,7 @@ fn main() {
 			print_time("Loaded city names in ", "", time::get_time() - start_time);
 			println!();
 			
+			// World-Wide
 			// --------------- List --------------------
 			
 			let city_set = cities.clone();
@@ -74,6 +77,35 @@ fn main() {
 			start_time = time::get_time();
 			let names = compute_most_frequent_city_by_map(&city_set);
 			print_time("Listed city names by map in ", "", time::get_time() - start_time);
+			
+			for name in names.iter().take(3).enumerate() {
+				println!("{}: {} with {} occurences", name.0, (name.1).0, (name.1).1);
+			}
+			
+			println!();
+			
+			// At least once in germany
+			// --------------- List --------------------
+			
+			let city_set = cities.clone();
+			
+			start_time = time::get_time();
+			let names = compute_most_frequent_city_by_sorting_in_de(city_set);
+			print_time("Listed city names (de) by sorting in ", "", time::get_time() - start_time);
+			
+			for name in names.iter().take(3).enumerate() {
+				println!("{}: {} with {} occurences", name.0, (name.1).0, (name.1).1);
+			}
+			
+			println!();
+			
+			// --------------- Map --------------------
+			
+			let city_set = cities.clone();
+			
+			start_time = time::get_time();
+			let names = compute_most_frequent_city_by_map_in_de(&city_set);
+			print_time("Listed city names (de) by map in ", "", time::get_time() - start_time);
 			
 			for name in names.iter().take(3).enumerate() {
 				println!("{}: {} with {} occurences", name.0, (name.1).0, (name.1).1);
