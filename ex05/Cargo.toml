@@ -1,0 +1,7 @@
+[package]
+name = "ex05"
+version = "0.1.0"
+authors = ["Tobias Faller <TobiasFaller@gmx.net>"]
+
+[dependencies]
+rand = "0.*"
