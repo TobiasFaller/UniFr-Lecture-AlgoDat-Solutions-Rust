@@ -1,5 +1,6 @@
 # Ignore eclipse files
 .metadata
+.recommenders
 RemoteSystemsTempFiles
 
 */.settings
