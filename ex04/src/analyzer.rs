@@ -1,40 +1,46 @@
 extern crate zip;
 
-use std;
+use self::zip::ZipArchive;
+use self::zip::result::ZipError;
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::error::Error as StdError;
+use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::fs::File;
+use std::io::{BufRead, BufReader, Error as IOError};
+use std::num::ParseIntError;
 use std::result::Result;
 use std::string::String;
 use std::vec::Vec;
 
 #[derive(Debug)]
 pub enum Error {
-	IoError(std::io::Error),
-	ParseError(std::num::ParseIntError),
-	ZipError(zip::result::ZipError)
+	IoError(IOError),
+	ParseError(ParseIntError),
+	ZipError(ZipError)
 }
 
-impl From<std::num::ParseIntError> for Error {
-    fn from(err: std::num::ParseIntError) -> Error {
+impl From<ParseIntError> for Error {
+    fn from(err: ParseIntError) -> Error {
         Error::ParseError(err)
     }
 }
 
-impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Error {
+impl From<IOError> for Error {
+    fn from(err: IOError) -> Error {
         Error::IoError(err)
     }
 }
 
 impl From<zip::result::ZipError> for Error {
-    fn from(err: zip::result::ZipError) -> Error {
+    fn from(err: ZipError) -> Error {
         Error::ZipError(err)
     }
 }
 
-impl std::fmt::Display for Error {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl Display for Error {
+	fn fmt(&self, f: &mut Formatter) -> FmtResult {
 		match *self {
 			Error::IoError(ref err) => write!(f, "IO Error: {}", err),
 			Error::ParseError(ref err) => write!(f, "Parse Error: {}", err),
@@ -43,7 +49,7 @@ impl std::fmt::Display for Error {
 	}
 }
 
-impl std::error::Error for Error {
+impl StdError for Error {
 	fn description(&self) -> &str {
 		match *self {
 			Error::IoError(ref err) => err.description(),
@@ -52,7 +58,7 @@ impl std::error::Error for Error {
 		}
 	}
 	
-	fn cause(&self) -> Option<&std::error::Error> {
+	fn cause(&self) -> Option<&StdError> {
 		match *self {
 			Error::IoError(ref err) => Some(err),
 			Error::ParseError(ref err) => Some(err),
@@ -62,22 +68,22 @@ impl std::error::Error for Error {
 }
 
 pub fn read_info_from_file(name: &str) -> Result<Vec<(String, String)>, Error> {
-	let file = try!(std::fs::File::open(name));
-	let mut archive = try!(zip::ZipArchive::new(file));
+	let file = try!(File::open(name));
+	let mut archive = try!(ZipArchive::new(file));
 	
 	let mut cities: Vec<(String, String)> = Vec::new();
 	cities.reserve(20000);
 	
 	for index in 0 .. archive.len() {
 		let entry = try!(archive.by_index(index));
-		let buf = std::io::BufReader::new(entry);
+		let buf = BufReader::new(entry);
 		try!(read_lines(buf, &mut cities));
 	}
 	
 	Ok(cities)
 }
 
-fn read_lines<R: std::io::BufRead>(buf: R, cities: &mut Vec<(String, String)>) -> Result<(), Error> {
+fn read_lines<R: BufRead>(buf: R, cities: &mut Vec<(String, String)>) -> Result<(), Error> {
 	for line_res in buf.lines() {
 		let line = try!(line_res);
 		
@@ -189,7 +195,7 @@ pub fn compute_most_frequent_city_by_sorting_in_de(mut cities: Vec<(String, Stri
 	return names;
 }
 
-pub fn compute_most_frequent_city_by_map_in_de<'a>(cities: &'a Vec<(String, String)>) -> Vec<(String, usize)> {
+pub fn compute_most_frequent_city_by_map_in_de(cities: &Vec<(String, String)>) -> Vec<(String, usize)> {
 	let length = cities.len();
 	if length == 0 {
 		return Vec::new();
