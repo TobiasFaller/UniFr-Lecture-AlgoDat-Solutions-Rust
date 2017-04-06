@@ -96,8 +96,6 @@ impl<T> MinMaxAvg<T> where T: Add<T, Output=T> + Mul<f64, Output = T> + Div<f64,
 					calc_avg = (value.2.clone() * self.len as f64 + (&sample).clone()) / (self.len as f64 + 1.0);
 				}
 				
-				print!("New value: {:?} {:?} {:?}", &calc_min, &calc_max, &calc_avg);
-				
 				value.0 = calc_min;
 				value.1 = calc_max;
 				value.2 = calc_avg;

@@ -62,7 +62,7 @@ pub fn estimate_c_for_single_set(h: &mut HashFunction, s: &Vec<usize>, h_funcs: 
 		h.set_random_parameters();
 		
 		let c = (mean_bucket_size(h, s) - 1.0_f64) * (h.num_buckets() as f64) / (s.len() as f64);
-		best_c = c.max(best_c);
+		best_c = c.min(best_c);
 	}
 	
 	return best_c;
