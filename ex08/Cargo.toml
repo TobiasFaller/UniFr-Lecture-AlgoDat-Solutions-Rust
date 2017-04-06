@@ -1,0 +1,9 @@
+[package]
+name = "ex08"
+version = "0.1.0"
+authors = ["Tobias Faller <TobiasFaller@gmx.net>"]
+
+[dependencies]
+getopts = "0.*"
+rand = "0.*"
+time = "0.*"
