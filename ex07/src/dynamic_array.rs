@@ -1,4 +1,3 @@
-use std::usize;
 use std::mem::swap;
 use std::vec::Vec;
 
@@ -16,10 +15,6 @@ impl<T> DynamicArray<T> {
 		};
 		a.resize(10);
 		return a;
-	}
-	
-	pub fn len(&self) -> usize {
-		return self.size;
 	}
 	
 	pub fn capacity(&self) -> usize {
