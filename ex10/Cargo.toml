@@ -1,0 +1,8 @@
+[package]
+name = "ex10"
+version = "0.1.0"
+authors = ["Tobias Faller <TobiasFaller@gmx.net>"]
+
+[dependencies]
+rand = "0.*"
+time = "0.*"
