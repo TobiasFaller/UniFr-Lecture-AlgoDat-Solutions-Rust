@@ -1,8 +1,6 @@
 use std::borrow::BorrowMut;
 use std::usize;
 
-use std::mem;
-
 pub struct BinarySearchTree<K, T> where K: PartialOrd + PartialEq {
 	root: Option<Box<Node<K, T>>>,
 	depth: usize
@@ -28,6 +26,7 @@ impl<K, T> Node<K, T> where K: PartialOrd + PartialEq {
 	
 }
 
+#[allow(dead_code)]
 impl<K, T> BinarySearchTree<K, T> where K: PartialOrd + PartialEq {
 	
 	pub fn new() -> BinarySearchTree<K, T> {
@@ -42,7 +41,7 @@ impl<K, T> BinarySearchTree<K, T> where K: PartialOrd + PartialEq {
 	}
 	
 	pub fn insert(&mut self, key: K, value: T) {
-		let mut current: *mut Option<Box<Node<K, T>>> = &mut self.root;
+		let mut current: *mut Option<Box<Node<K, T>>> = self.root.borrow_mut();
 		let mut depth: usize = 1;
 		
 		loop {
@@ -55,19 +54,20 @@ impl<K, T> BinarySearchTree<K, T> where K: PartialOrd + PartialEq {
 						} 
 						return;
 					},
-					Some(box ref mut inner) => {
+					Some(ref mut inner) => {
 						depth += 1;
-						
 						if inner.key == key {
 							inner.value = value;
 							return;
-						} else if inner.key < key {
-							current = &mut inner.left;
+						}
+						
+						if inner.key < key {
+							current = inner.left.borrow_mut();
 						} else {
-							current = &mut inner.right;
+							current = inner.right.borrow_mut();
 						}
 					}
-				}
+				};
 			}
 		}
 	}
