@@ -9,6 +9,7 @@ pub struct MinMaxAvg<T> where T: Add<T, Output=T> + Mul<f64, Output = T> + Div<f
     len: usize
 }
 
+#[allow(dead_code)]
 impl<T> MinMaxAvg<T> where T: Add<T, Output=T> + Mul<f64, Output = T> + Div<f64, Output = T> + PartialOrd + Clone {
 	fn new() -> MinMaxAvg<T> {
 		Default::default()
