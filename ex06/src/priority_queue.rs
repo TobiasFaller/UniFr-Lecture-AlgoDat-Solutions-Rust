@@ -1,5 +1,7 @@
+use std::boxed::Box;
 use std::cmp::{Ord, Ordering};
 use std::rc::{Rc, Weak};
+use std::mem;
 use std::vec::Vec;
 
 struct PriorityQueueItem<K, T> where K: Ord + Clone, T: Clone {
@@ -41,13 +43,13 @@ impl<K, T> PartialEq for PriorityQueueItem<K, T> where K: Ord + Clone, T: Clone 
 impl<K, T> Eq for PriorityQueueItem<K, T> where K: Ord + Clone, T: Clone { }
 
 pub struct Handle<K, T> where K: Ord + Clone, T: Clone {
-	item: Weak<PriorityQueueItem<K, T>>,
+	item: Option<Weak<PriorityQueueItem<K, T>>>,
 	pq: *const PriorityQueue<K, T>
 }
 
 impl<K, T> Handle<K, T> where K: Ord + Clone, T: Clone {
 	
-	fn new(pq: *const PriorityQueue<K, T>, item: Weak<PriorityQueueItem<K, T>>) -> Handle<K, T> {
+	fn new(pq: *const PriorityQueue<K, T>, item: Option<Weak<PriorityQueueItem<K, T>>>) -> Handle<K, T> {
 		Handle {
 			item: item,
 			pq: pq
@@ -61,7 +63,7 @@ pub struct PriorityQueue<K, T> where K: Ord + Clone, T: Clone {
 }
 
 impl<'a, K: 'a, T: 'a> PriorityQueue<K, T> where K: Ord + Clone, T: Clone {
-	
+
 	pub fn new() -> PriorityQueue<K, T> {
 		PriorityQueue {
 			elem: Vec::new()
@@ -76,13 +78,13 @@ impl<'a, K: 'a, T: 'a> PriorityQueue<K, T> where K: Ord + Clone, T: Clone {
 		new_item.heap_index = size;
 		
 		let ptr = Rc::new(new_item);
-		let weak_ptr = Rc::downgrade(&ptr);
+		let handle_ptr = Rc::downgrade(&ptr);
 		self.elem.push(ptr);
 		
 		// Repair heap upwards
 		self.repair_heap_up(size);
 		
-		return Handle::new(self as *const PriorityQueue<K, T>, weak_ptr);
+		return Handle::new(self as *const PriorityQueue<K, T>, Some(handle_ptr));
 	}
 	
 	pub fn get_min(&self) -> Option<(K, T)> {
@@ -117,58 +119,79 @@ impl<'a, K: 'a, T: 'a> PriorityQueue<K, T> where K: Ord + Clone, T: Clone {
 		if size == 0 {
 			return None;
 		}
-		
-		let item: Option<Rc<PriorityQueueItem<K, T>>>;
-		{
-			let elem: &mut Vec<Rc<PriorityQueueItem<K, T>>> = self.elem.as_mut();
-			elem.swap(0, size);
-			
-			item = elem.pop();
+
+		let item;
+		if size == 1 {
+			item = self.elem.remove(0);
+		} else {
+			item = self.elem.swap_remove(0);
+
+			// Repair heap downwards
+			self.repair_heap_down(0);
 		}
-		
-		// Repair heap downwards
-		self.repair_heap_down(0);
-		
-		let pq_item = item.unwrap();
-		return Some(((&pq_item.key).clone(), (&pq_item.value).clone()));
+
+		if let Ok(item) = Rc::try_unwrap(item) {
+			return Some((item.key, item.value));
+		} else {
+			return None;
+		}
 	}
 	
-	pub fn change_key(&mut self, handle: &Handle<K, T>, new_key: K) {
+	pub fn change_key(&mut self, handle: &mut Handle<K, T>, key: K) -> bool {
 		if handle.pq != self {
-			return;
+			return false;
 		}
-		
-		let weak_ptr = &handle.item;
-		let index;
-		
-		match weak_ptr.upgrade() {
-			None => {
-				return;
-			},
-			Some(ptr) => {
-				index = ptr.heap_index;
+
+		let index: usize;
+		{
+			// This scope will destroy the weak reference
+			let mut weak_ptr = None;
+			mem::swap(&mut handle.item, &mut weak_ptr);
+
+			match weak_ptr {
+				None => {
+					panic!("This method is not thread safe!");
+				},
+				Some(ptr) => {
+					match ptr.upgrade() {
+						None => {
+							return false;
+						},
+						Some(ptr) => {
+							index = ptr.as_ref().heap_index;
+						}
+					}
+				}
 			}
 		}
-		println!("Index: {}", index);
-		
-		let old_key;
+
+		let mut old_key = key.clone();
+		let new_key = key;
 		{
-			let elem: &mut Vec<Rc<PriorityQueueItem<K, T>>> = &mut self.elem;
-			let item_ptr: &mut Rc<PriorityQueueItem<K, T>> = &mut elem[index];
-			let item: &mut PriorityQueueItem<K, T> = Rc::get_mut(item_ptr).unwrap();
-			old_key = item.key.clone();
-			item.key = new_key.clone();
+			println!("Strong: {}, Weak: {}", Rc::strong_count(&self.elem[index]), Rc::weak_count(&self.elem[index]));
+			if let Some(item) = Rc::get_mut(&mut self.elem[index]) {
+				mem::swap(&mut old_key, &mut item.key);
+			} else {
+				panic!("Cannot modify because of existing references!");
+			}
+
+			// Fix removed weak pointer
+			let mut weak_ptr = Some(Rc::downgrade(&self.elem[index]));
+			mem::swap(&mut handle.item, &mut weak_ptr);
 		}
-		
-		if &old_key > &new_key {
+
+		if old_key > new_key {
 			self.repair_heap_up(index);
-		} else if &old_key < &new_key {
+		} else if old_key < new_key {
 			self.repair_heap_down(index);
 		}
+
+		return true;
 	}
 	
 	fn repair_heap_up(&mut self, index: usize) {
-		let mut index = index;
+		let mut index = index.clone();
+
 		while index > 0 {
 			let parent: usize = (index - 1) / 2;
 			
@@ -183,14 +206,14 @@ impl<'a, K: 'a, T: 'a> PriorityQueue<K, T> where K: Ord + Clone, T: Clone {
 	fn repair_heap_down(&mut self, index: usize) {
 		let size = self.size();
 		let elem: &mut Vec<Rc<PriorityQueueItem<K, T>>> = &mut self.elem;
-		
-		let mut index = index;
-		while index <= (size / 2) - 1 {
-			let child_left = index / 2 - 2;
-			let child_right = index / 2 - 1;
-			
+
+		let mut index = index.clone();
+		while index * 2 + 1 < size {
+			let child_left = index * 2 + 1;
+			let child_right = index * 2 + 2;
+
 			let mut swap_index = index;
-			
+
 			// Choose the element we want to swap with
 			if child_left < size && elem[child_left] < elem[swap_index] {
 				swap_index = child_left;
@@ -198,11 +221,11 @@ impl<'a, K: 'a, T: 'a> PriorityQueue<K, T> where K: Ord + Clone, T: Clone {
 			if child_right < size && elem[child_right] < elem[swap_index] {
 				swap_index = child_right;
 			}
-			
+
 			if swap_index == index {
 				return;
 			}
-			
+
 			elem.swap(swap_index, index);
 			index = swap_index;
 		}
