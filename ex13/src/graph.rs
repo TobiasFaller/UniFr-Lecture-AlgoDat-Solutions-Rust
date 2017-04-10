@@ -3,7 +3,8 @@ extern crate zip;
 use self::zip::ZipArchive;
 use self::zip::result::ZipError;
 
-use std::collections::HashSet;
+use std::collections::{BinaryHeap, HashSet};
+use std::cmp::min;
 use std::error::Error as StdError;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::fs::File;
@@ -96,11 +97,11 @@ impl StdError for Error {
 	}
 }
 
-struct Node<'a> {
+struct Node {
 	id: usize,
 	latitude: f64,
 	longitude: f64,
-	traceback_arc: Option<&'a Arc>,
+	traceback_arc: Option<usize>,
 	settled: bool,
 	distance: Option<u64>
 }
@@ -113,13 +114,13 @@ struct Arc {
 	costs: u64
 }
 
-pub struct Graph<'a> {
-	nodes: Box<Vec<Node<'a>>>,
+pub struct Graph {
+	nodes: Box<Vec<Node>>,
 	adjacency_lists: Box<Vec<Vec<Arc>>>
 }
 
 #[allow(dead_code)]
-impl<'a> Graph<'a> {
+impl Graph {
 	
 	fn read_lines<R: BufRead>(&mut self, buf: R) -> Result<(), Error> {
 		let mut line_number = 0;
@@ -231,20 +232,24 @@ impl<'a> Graph<'a> {
 		Ok(graph)
 	}
 	
-	fn set_arc_costs_to_travel_time(&mut self, max_vehicle_speed: u64) {
+	/// Set arc costs to travel time in whole seconds.
+	pub fn set_arc_costs_to_travel_time(&mut self, max_vehicle_speed: u64) {
 		for arcs in self.adjacency_lists.iter_mut() {
 			for arc in arcs.iter_mut() {
+				// Compute max possible speed for this arc
 				let mut max_speed = arc.max_speed;
 				if max_vehicle_speed < max_speed {
 					max_speed = max_vehicle_speed;
 				}
 				
+				// Compute travel time in whole seconds
 				arc.costs = ((arc.distance as f64) * 3.6 / (max_speed as f64)) as u64;
 			}
 		}
 	}
 	
-	fn set_arc_costs_to_distance(&mut self) {
+	/// Set arc costs to distance.
+	pub fn set_arc_costs_to_distance(&mut self) {
 		for arcs in self.adjacency_lists.iter_mut() {
 			for arc in arcs.iter_mut() {
 				arc.costs = arc.distance;
@@ -252,14 +257,20 @@ impl<'a> Graph<'a> {
 		}
 	}
 	
+	/// Returns the number of nodes in this graph.
 	pub fn num_nodes(&self) -> usize {
 		self.nodes.len()
 	}
 	
+	/// Return the number of arcs in this graph.
 	pub fn num_arcs(&self) -> usize {
 		self.adjacency_lists.len()
 	}
 	
+	/// Compute all reachable nodes from the given start node.
+	///
+	/// The result is a tuple of the number selected nodes and an 'mark' list
+	/// where a value of '1' represents a visited node. 
 	fn compute_reachable_nodes(&self, node_id: usize) -> (usize, Box<Vec<u8>>) {
 		let mut marked_nodes = box vec![0_u8; self.num_nodes()];
 		let mut num_marked = 1;
@@ -291,6 +302,10 @@ impl<'a> Graph<'a> {
 		return (num_marked, marked_nodes);
 	}
 	
+	/// Mark all nodes in the largest connected component.
+	///
+	/// The result is a tuple comprising of the number of nodes in the
+	/// lcc and the list of nodes contained in it.
 	pub fn compute_lcc(&self) -> (usize, Box<Vec<usize>>){
 		let node_count = self.num_nodes();
 		
@@ -328,5 +343,124 @@ impl<'a> Graph<'a> {
 		}
 		
 		return lcc;
+	}
+	
+	/// Compute the shortest paths for a given start node.
+	///
+	/// Compute the shortest paths from the given start node
+	/// using Dijkstra's algorithm.
+	pub fn compute_shortest_paths(&mut self, start_node: usize) {
+		self.nodes[0].distance = Some(0);
+		
+		let mut active_nodes = BinaryHeap::<(u64, usize)>::new();
+		active_nodes.push((0, start_node));
+		
+		loop {
+			let res = active_nodes.pop();
+			match res {
+				None => { return; },
+				Some(node_index) => {
+					let (start, tmp) = self.nodes.split_at_mut(node_index.1);
+					let (node, end) = tmp.split_first_mut().unwrap();
+					
+					// Node was already settled
+					if node.settled {
+						continue;
+					}
+					
+					// Settle active node
+					node.settled = true;
+					
+					// Updated all connected nodes
+					for arc in self.adjacency_lists[node.id].iter() {
+						let next_distance = node.distance.unwrap() + arc.costs;
+						let next_node;
+						
+						if arc.head_node_id < node_index.1 {
+							next_node = &mut start[arc.head_node_id];
+						} else {
+							next_node = &mut end[arc.head_node_id - node_index.1 - 1];
+						}
+						
+						if !next_node.settled {
+							match next_node.distance {
+								None => { },
+								Some(distance) => {
+									if distance < next_distance {
+										continue;
+									}
+								}
+							}
+							
+							next_node.distance = Some(next_distance);
+							next_node.traceback_arc = Some(node_index.1);
+							
+							active_nodes.push((next_distance, next_node.id));
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	/// Compute distance and travel time of the selected path.
+	pub fn travel_to(&self, end_node: usize, max_speed: u64) -> (f64, f64) {
+		let mut node = &self.nodes[end_node];
+		let mut time = 0.0;
+		let mut distance = 0.0;
+		
+		loop {
+			let arc_ref = node.traceback_arc;
+			match arc_ref {
+				None => {
+					break;
+				},
+				Some(arc_index) => {
+					// Just use some default arc
+					let mut arc = &self.adjacency_lists[arc_index][0];
+					for _arc in self.adjacency_lists[arc_index].iter() {
+						if _arc.head_node_id == node.id {
+							arc = _arc;
+							break;
+						}
+					}
+					
+					let dist_km = (arc.distance as f64) / 1000.0;
+					
+					distance += dist_km;
+					
+					// s = v * t => t = s / v
+					time += dist_km / min(max_speed, arc.max_speed) as f64;
+					
+					// Follow to previous node
+					node = &self.nodes[arc.tail_node_id];
+				}
+			}
+		}
+		
+		return (distance, time);
+	}
+	
+	/// Resets this graph to enable a different Dijkstra calculation.
+	pub fn reset(&mut self) {
+		for node in self.nodes.iter_mut() {
+			node.traceback_arc = None;
+			node.settled = false;
+			node.distance = None;
+		}
+	}
+	
+	/// Returns the furthes node from the selected start
+	pub fn get_furthest_node(&self) -> (u64, usize) {
+		let mut max_dist = (0, 0);
+		
+		for node in self.nodes.iter() {
+			let dist = node.distance.unwrap();
+			if max_dist.0 < dist {
+				max_dist = (dist, node.id);
+			}
+		}
+		
+		return max_dist;
 	}
 }
