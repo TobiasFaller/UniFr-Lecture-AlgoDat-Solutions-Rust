@@ -103,7 +103,7 @@ struct Node {
 	longitude: f64,
 	traceback_arc: Option<usize>,
 	settled: bool,
-	distance: Option<u64>
+	distance: Option<f64>
 }
 
 struct Arc {
@@ -111,7 +111,7 @@ struct Arc {
 	tail_node_id: usize,
 	distance: u64,
 	max_speed: u64,
-	costs: u64
+	costs: f64
 }
 
 pub struct Graph {
@@ -119,7 +119,6 @@ pub struct Graph {
 	adjacency_lists: Box<Vec<Vec<Arc>>>
 }
 
-#[allow(dead_code)]
 impl Graph {
 	
 	fn read_lines<R: BufRead>(&mut self, buf: R) -> Result<(), Error> {
@@ -193,17 +192,17 @@ impl Graph {
 							head_node_id: head_node,
 							distance: distance,
 							max_speed: max_speed,
-							costs: distance
+							costs: distance as f64
 						});
 						
 						// We create an undirected graph
-						self.adjacency_lists[head_node].push(Arc {
+						/*self.adjacency_lists[head_node].push(Arc {
 							tail_node_id: head_node,
 							head_node_id: tail_node,
 							distance: distance,
 							max_speed: max_speed,
 							costs: distance
-						});
+						});*/
  					} else {
 	 					return Err(Error::from(format!("Invalid graph file! (Additional lines, line {})", total_line_number)));
  					}
@@ -236,14 +235,8 @@ impl Graph {
 	pub fn set_arc_costs_to_travel_time(&mut self, max_vehicle_speed: u64) {
 		for arcs in self.adjacency_lists.iter_mut() {
 			for arc in arcs.iter_mut() {
-				// Compute max possible speed for this arc
-				let mut max_speed = arc.max_speed;
-				if max_vehicle_speed < max_speed {
-					max_speed = max_vehicle_speed;
-				}
-				
 				// Compute travel time in whole seconds
-				arc.costs = ((arc.distance as f64) * 3.6 / (max_speed as f64)) as u64;
+				arc.costs = (arc.distance as f64) * 3.6 / min(arc.max_speed, max_vehicle_speed) as f64;
 			}
 		}
 	}
@@ -252,7 +245,7 @@ impl Graph {
 	pub fn set_arc_costs_to_distance(&mut self) {
 		for arcs in self.adjacency_lists.iter_mut() {
 			for arc in arcs.iter_mut() {
-				arc.costs = arc.distance;
+				arc.costs = arc.distance as f64;
 			}
 		}
 	}
@@ -350,9 +343,9 @@ impl Graph {
 	/// Compute the shortest paths from the given start node
 	/// using Dijkstra's algorithm.
 	pub fn compute_shortest_paths(&mut self, start_node: usize) {
-		self.nodes[0].distance = Some(0);
+		self.nodes[start_node].distance = Some(0.0);
 		
-		let mut active_nodes = BinaryHeap::<(u64, usize)>::new();
+		let mut active_nodes = BinaryHeap::<(i64, usize)>::new();
 		active_nodes.push((0, start_node));
 		
 		loop {
@@ -373,6 +366,12 @@ impl Graph {
 					
 					// Updated all connected nodes
 					for arc in self.adjacency_lists[node.id].iter() {
+						if arc.head_node_id == node_index.1 {
+							// A node connected to itself ...
+							// I love this dataset
+							continue;
+						}
+						
 						let next_distance = node.distance.unwrap() + arc.costs;
 						let next_node;
 						
@@ -395,7 +394,8 @@ impl Graph {
 							next_node.distance = Some(next_distance);
 							next_node.traceback_arc = Some(node_index.1);
 							
-							active_nodes.push((next_distance, next_node.id));
+							// Use negative numbers since we only have a max-heap
+							active_nodes.push((-(next_distance * 1000.0) as i64, next_node.id));
 						}
 					}
 				}
@@ -425,12 +425,11 @@ impl Graph {
 						}
 					}
 					
-					let dist_km = (arc.distance as f64) / 1000.0;
-					
-					distance += dist_km;
+					distance += arc.distance as f64;
 					
 					// s = v * t => t = s / v
-					time += dist_km / min(max_speed, arc.max_speed) as f64;
+					// t = [s] = s / v = [m] / [m/s] = [m] / ([km/h] / 3.6)
+					time += arc.distance as f64 * 3.6 / min(max_speed, arc.max_speed) as f64;
 					
 					// Follow to previous node
 					node = &self.nodes[arc.tail_node_id];
@@ -451,16 +450,62 @@ impl Graph {
 	}
 	
 	/// Returns the furthes node from the selected start
-	pub fn get_furthest_node(&self) -> (u64, usize) {
-		let mut max_dist = (0, 0);
+	pub fn get_furthest_node(&self) -> (f64, usize) {
+		let mut max_dist = (0.0, 0);
 		
 		for node in self.nodes.iter() {
-			let dist = node.distance.unwrap();
-			if max_dist.0 < dist {
-				max_dist = (dist, node.id);
+			match node.distance {
+				None => { },
+				Some(dist) => {
+					if max_dist.0 < dist {
+						max_dist = (dist, node.id);
+					}
+				}
 			}
 		}
 		
 		return max_dist;
+	}
+	
+	pub fn generate_mapbb(&self, str: &mut String, end_node: usize) {
+		let mut node = &self.nodes[end_node];
+		let mut node_count = 0;
+		
+		loop {
+			if node_count % 10 == 0 {
+				if node_count != 0 {
+					str.push(' ');
+				}
+				
+				str.push_str(format!("{:.4},{:.4}", node.longitude, node.latitude).as_str());
+			}
+			
+			node_count += 1;
+			
+			let arc_ref = node.traceback_arc;
+			match arc_ref {
+				None => {
+					break;
+				},
+				Some(arc_index) => {
+					// Just use some default arc
+					let mut arc = &self.adjacency_lists[arc_index][0];
+					for _arc in self.adjacency_lists[arc_index].iter() {
+						if _arc.head_node_id == node.id {
+							arc = _arc;
+							break;
+						}
+					}
+					
+					// Follow to previous node
+					node = &self.nodes[arc.tail_node_id];
+				}
+			}
+			
+			// Append last node
+			if node_count % 10 != 0 {
+				str.push_str(format!("{:.4},{:.4}", node.longitude, node.latitude).as_str());
+			}
+		}
 	}
 }
