@@ -97,6 +97,8 @@ impl StdError for Error {
 	}
 }
 
+const MAPBB_NODE_DIVIDER: u64 = 15;
+
 struct Node {
 	id: usize,
 	latitude: f64,
@@ -201,7 +203,7 @@ impl Graph {
 							head_node_id: tail_node,
 							distance: distance,
 							max_speed: max_speed,
-							costs: distance
+							costs: distance as f64
 						});*/
  					} else {
 	 					return Err(Error::from(format!("Invalid graph file! (Additional lines, line {})", total_line_number)));
@@ -266,7 +268,7 @@ impl Graph {
 	/// where a value of '1' represents a visited node. 
 	fn compute_reachable_nodes(&self, node_id: usize) -> (usize, Box<Vec<u8>>) {
 		let mut marked_nodes = box vec![0_u8; self.num_nodes()];
-		let mut num_marked = 1;
+		let mut num_marked = 0;
 		
 		let mut pending_nodes = box HashSet::<usize>::new();
 		pending_nodes.insert(node_id);
@@ -472,12 +474,12 @@ impl Graph {
 		let mut node_count = 0;
 		
 		loop {
-			if node_count % 10 == 0 {
+			if node_count % MAPBB_NODE_DIVIDER == 0 {
 				if node_count != 0 {
-					str.push(' ');
+					str.push_str(" ");
 				}
 				
-				str.push_str(format!("{:.4},{:.4}", node.longitude, node.latitude).as_str());
+				str.push_str(format!("{:.4},{:.4}", node.latitude, node.longitude).as_str());
 			}
 			
 			node_count += 1;
@@ -501,11 +503,89 @@ impl Graph {
 					node = &self.nodes[arc.tail_node_id];
 				}
 			}
-			
-			// Append last node
-			if node_count % 10 != 0 {
-				str.push_str(format!("{:.4},{:.4}", node.longitude, node.latitude).as_str());
-			}
+		}
+
+		// Append last node
+		if node_count % MAPBB_NODE_DIVIDER != 0 {
+			str.push_str(format!("{:.4},{:.4}", node.latitude, node.longitude).as_str());
 		}
 	}
+}
+
+impl Display for Graph {
+	fn fmt(&self, fmt: &mut Formatter) -> FmtResult {
+		try!(write!(fmt, "["));
+		for (i, node) in self.nodes.iter().enumerate() {
+			let lst = &self.adjacency_lists[node.id];
+			
+			for (j, adj) in lst.iter().enumerate() {
+				try!(write!(fmt, "{}->{}({})", adj.tail_node_id, adj.head_node_id, adj.costs));
+
+				if i + 1 != self.nodes.len() || j + 1 != lst.len() {
+					try!(write!(fmt, ", "));
+				}
+			}
+		}
+		try!(write!(fmt, "]"));
+
+		return Ok(());
+	}
+}
+
+#[test]
+fn test_read() {
+	let graph = Graph::read_graph_from_file("graphs/test.zip").unwrap();
+
+	assert_eq!("[0->1(30), 0->2(70), 1->2(20), 2->3(50), 3->1(40), 4->3(20)]",
+		format!("{}", graph));
+}
+
+#[test]
+fn test_reachable_nodes() {
+	let graph = Graph::read_graph_from_file("graphs/test2.zip").unwrap();
+
+	assert_eq!(4, graph.compute_reachable_nodes(0).0);
+	assert_eq!(6, graph.compute_reachable_nodes(4).0);
+	assert_eq!(1, graph.compute_reachable_nodes(6).0);
+}
+
+#[test]
+fn test_shortest() {
+	let mut graph = Graph::read_graph_from_file("graphs/test.zip").unwrap();
+
+	assert_eq!("[0->1(30), 0->2(70), 1->2(20), 2->3(50), 3->1(40), 4->3(20)]",
+		format!("{}", graph));
+
+	graph.compute_shortest_paths(1);
+
+	let expected = vec![None, Some(0.0), Some(20.0), Some(70.0), None];
+	assert_eq!(expected,
+		graph.nodes.iter().map(|node| node.distance).collect::<Vec<Option<f64>>>());
+}
+
+#[test]
+fn test_costs_distance() {
+	let mut graph = Graph::read_graph_from_file("graphs/test.zip").unwrap();
+
+	assert_eq!("[0->1(30), 0->2(70), 1->2(20), 2->3(50), 3->1(40), 4->3(20)]",
+		format!("{}", graph));
+
+	graph.set_arc_costs_to_travel_time(100);
+	graph.set_arc_costs_to_distance();
+
+	assert_eq!("[0->1(30), 0->2(70), 1->2(20), 2->3(50), 3->1(40), 4->3(20)]",
+		format!("{}", graph));
+}
+
+#[test]
+fn test_costs_time() {
+	let mut graph = Graph::read_graph_from_file("graphs/test.zip").unwrap();
+
+	assert_eq!("[0->1(30), 0->2(70), 1->2(20), 2->3(50), 3->1(40), 4->3(20)]",
+		format!("{}", graph));
+
+	graph.set_arc_costs_to_travel_time(100);
+
+	assert_eq!("[0->1(3.6), 0->2(8.4), 1->2(2.4), 2->3(6), 3->1(4.8), 4->3(2.4)]",
+		format!("{}", graph));
 }
