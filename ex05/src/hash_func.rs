@@ -84,3 +84,15 @@ fn generate_key_set(k: usize, u: usize) -> Vec<usize> {
 	let mut rng = thread_rng();
 	return sample(&mut rng, 0..u, k);
 }
+
+#[test]
+fn test_mean_bucket_size() {
+	let mut h_func = HashFunction::new(101, 10);
+	h_func.a = 5;
+	h_func.b = 6;
+	
+	let keys = vec![8, 5, 32, 1, 85, 0, 3];
+	
+	// 7 keys onto 4 buckets -> 1.75
+	assert_eq!(1.75, mean_bucket_size(&h_func, &keys));
+}
