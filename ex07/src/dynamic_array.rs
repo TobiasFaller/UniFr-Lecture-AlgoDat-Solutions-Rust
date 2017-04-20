@@ -13,12 +13,16 @@ impl<T> DynamicArray<T> {
 			data: Vec::new(),
 			size: 0
 		};
-		a.resize(10);
+		a.resize(2);
 		return a;
 	}
 	
 	pub fn capacity(&self) -> usize {
 		return self.data.capacity();
+	}
+	
+	pub fn len(&self) -> usize {
+		return self.data.len();
 	}
 	
 	pub fn append(&mut self, value: T) {
@@ -50,8 +54,8 @@ impl<T> DynamicArray<T> {
 	
 	fn resize(&mut self, size: usize) {
 		let mut size = size;
-		if size < 10 {
-			size = 10;
+		if size < 1 {
+			size = 1;
 		}
 		
 		if size == self.data.capacity() {
@@ -66,4 +70,47 @@ impl<T> DynamicArray<T> {
 		}
 	}
 	
+	fn get(&self, index: usize) -> &T {
+		return &self.data[index];
+	}
+}
+
+#[test]
+fn test_fresh_list() {
+	let array = DynamicArray::<&str>::new();
+	
+	assert_eq!(0, array.len());
+	assert_eq!(2, array.capacity());
+}
+
+#[test]
+fn test_append() {
+	let mut array = DynamicArray::<&str>::new();
+	
+	array.append("1");
+	
+	let expected = vec!["1"];
+	
+	assert_eq!(expected.len(), array.len());
+	assert_eq!(2, array.capacity());
+	assert_eq!(expected.iter().collect::<Vec<&&str>>(),
+		(0..expected.len()).map(|val| array.get(val)).collect::<Vec<&&str>>());
+	
+	array.append("2");
+	array.append("3");
+	
+	let expected = vec!["1", "2", "3"];
+	assert_eq!(expected.len(), array.len());
+	assert_eq!(4, array.capacity());
+	assert_eq!(expected.iter().collect::<Vec<&&str>>(),
+		(0..expected.len()).map(|val| array.get(val)).collect::<Vec<&&str>>());
+	
+	array.append("4");
+	array.append("5");
+	
+	let expected = vec!["1", "2", "3", "4", "5"];
+	assert_eq!(expected.len(), array.len());
+	assert_eq!(8, array.capacity());
+	assert_eq!(expected.iter().collect::<Vec<&&str>>(),
+		(0..expected.len()).map(|val| array.get(val)).collect::<Vec<&&str>>());
 }
