@@ -123,7 +123,7 @@ pub fn compute_most_frequent_city_by_sorting(mut cities: Vec<(String, String)>) 
 	}
 	
 	names.push((cities[length - 1].0.to_owned(), count));
-	names.sort_by(|a, b| b.1.cmp(&a.1));
+	names.sort_by(|a, b| b.1.cmp(&a.1).then(b.0.cmp(&a.0).reverse()));
 	
 	return names;
 }
@@ -153,7 +153,7 @@ pub fn compute_most_frequent_city_by_map(cities: &Vec<(String, String)>) -> Vec<
 	for (name, count) in map.drain() {
 		names.push((name.to_owned(), count));
 	}
-	names.sort_by(|a, b| b.1.cmp(&a.1));
+	names.sort_by(|a, b| b.1.cmp(&a.1).then(b.0.cmp(&a.0).reverse()));
 	
 	return names;
 }
@@ -190,7 +190,7 @@ pub fn compute_most_frequent_city_by_sorting_in_de(mut cities: Vec<(String, Stri
 		names.push((cities[length - 1].0.to_owned(), count));
 	}
 	
-	names.sort_by(|a, b| b.1.cmp(&a.1));
+	names.sort_by(|a, b| b.1.cmp(&a.1).then(b.0.cmp(&a.0).reverse()));
 	
 	return names;
 }
@@ -224,7 +224,47 @@ pub fn compute_most_frequent_city_by_map_in_de(cities: &Vec<(String, String)>) -
 		}
 	}
 	
-	names.sort_by(|a, b| b.1.cmp(&a.1));
+	names.sort_by(|a, b| b.1.cmp(&a.1).then(b.0.cmp(&a.0).reverse()));
 	
 	return names;
+}
+
+#[test]
+fn test_read() {
+	if let Ok(data) = read_info_from_file("test_data.zip") {
+		assert_eq!(16, data.len());
+	} else {
+		assert!(false);
+	}
+}
+
+#[test]
+fn test_analyzer() {
+	if let Ok(data) = read_info_from_file("test_data.zip") {
+		let cities_map = compute_most_frequent_city_by_map(&data);
+		let cities_sort = compute_most_frequent_city_by_sorting(data);
+		
+		let expected = vec![("Köln".to_owned(), 4_usize), ("Freiburg".to_owned(), 3_usize), ("Fruiburg".to_owned(), 3_usize)];
+		
+		assert_eq!(expected, cities_map[..3].to_vec());
+		assert_eq!(expected, cities_sort[..3].to_vec());
+	} else {
+		assert!(false);
+	}
+}
+
+#[test]
+fn test_analyzer_de() {
+	if let Ok(data) = read_info_from_file("test_data.zip") {
+		let cities_map = compute_most_frequent_city_by_map_in_de(&data);
+		let cities_sort = compute_most_frequent_city_by_sorting_in_de(data);
+		
+		// Now 'Fruiburg' is outnumbered by 'Friburg'
+		let expected = vec![("Köln".to_owned(), 4_usize), ("Freiburg".to_owned(), 3_usize), ("Friburg".to_owned(), 2_usize)];
+		
+		assert_eq!(expected, cities_map[..3].to_vec());
+		assert_eq!(expected, cities_sort[..3].to_vec());
+	} else {
+		assert!(false);
+	}
 }
