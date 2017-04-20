@@ -37,16 +37,17 @@ impl<T> DynamicArray<T> {
 	}
 	
 	pub fn remove(&mut self) -> Option<T> {
-		let size = self.size;
-		
-		if size == 0 {
+		if self.size == 0 {
 			return None;
 		}
 		
 		let value = self.data.pop();
+		self.size -= 1;
 		
-		if size <= self.data.capacity() / 3 {
-			self.resize(3 * size / 2);
+		println!("Size: {}, Capacity: {}", self.size, self.data.capacity());
+		let capacity = self.data.capacity();
+		if self.size * 3 <= capacity {
+			self.resize(capacity / 2);
 		}
 		
 		return value;
@@ -62,7 +63,11 @@ impl<T> DynamicArray<T> {
 			return;
 		}
 		
-		let mut vec: Vec<T> = Vec::with_capacity(size);
+		println!("Resizing to {}", size);
+		
+		let mut vec: Vec<T> = Vec::new();
+		vec.reserve_exact(size);
+		
 		swap(&mut vec, &mut self.data);
 		
 		for item in vec {
@@ -77,7 +82,7 @@ impl<T> DynamicArray<T> {
 
 #[test]
 fn test_fresh_list() {
-	let array = DynamicArray::<&str>::new();
+	let array = DynamicArray::<String>::new();
 	
 	assert_eq!(0, array.len());
 	assert_eq!(2, array.capacity());
@@ -85,32 +90,120 @@ fn test_fresh_list() {
 
 #[test]
 fn test_append() {
-	let mut array = DynamicArray::<&str>::new();
+	let mut array = DynamicArray::<String>::new();
 	
-	array.append("1");
+	array.append("1".to_owned());
 	
 	let expected = vec!["1"];
 	
 	assert_eq!(expected.len(), array.len());
 	assert_eq!(2, array.capacity());
-	assert_eq!(expected.iter().collect::<Vec<&&str>>(),
-		(0..expected.len()).map(|val| array.get(val)).collect::<Vec<&&str>>());
+	assert_eq!(expected, (0..expected.len()).map(|val| array.get(val).clone()).collect::<Vec<String>>());
 	
-	array.append("2");
-	array.append("3");
+	array.append("2".to_owned());
+	array.append("3".to_owned());
 	
 	let expected = vec!["1", "2", "3"];
 	assert_eq!(expected.len(), array.len());
 	assert_eq!(4, array.capacity());
-	assert_eq!(expected.iter().collect::<Vec<&&str>>(),
-		(0..expected.len()).map(|val| array.get(val)).collect::<Vec<&&str>>());
+	assert_eq!(expected, (0..expected.len()).map(|val| array.get(val).clone()).collect::<Vec<String>>());
 	
-	array.append("4");
-	array.append("5");
+	array.append("4".to_owned());
+	array.append("5".to_owned());
 	
 	let expected = vec!["1", "2", "3", "4", "5"];
 	assert_eq!(expected.len(), array.len());
 	assert_eq!(8, array.capacity());
-	assert_eq!(expected.iter().collect::<Vec<&&str>>(),
-		(0..expected.len()).map(|val| array.get(val)).collect::<Vec<&&str>>());
+	assert_eq!(expected, (0..expected.len()).map(|val| array.get(val).clone()).collect::<Vec<String>>());
+}
+
+#[test]
+fn test_remove() {
+	let mut array = DynamicArray::<String>::new();
+	
+	let data = (1..10).map(|i| format!("{}", i)).collect::<Vec<String>>();
+	for str in data {
+		array.append(str);
+	}
+	
+	let expected = vec!["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+	
+	assert_eq!(expected.len(), array.len());
+	assert_eq!(16, array.capacity());
+	assert_eq!(expected, (0..expected.len()).map(|val| array.get(val).clone()).collect::<Vec<String>>());
+	
+	array.remove();
+	array.remove();
+	array.remove();
+	array.remove();
+	
+	let expected = vec!["1", "2", "3", "4", "5"];
+	
+	assert_eq!(expected.len(), array.len());
+	assert_eq!(8, array.capacity());
+	assert_eq!(expected, (0..expected.len()).map(|val| array.get(val).clone()).collect::<Vec<String>>());
+	
+	array.remove();
+	array.remove();
+	array.remove();
+	
+	let expected = vec!["1", "2"];
+	
+	assert_eq!(expected.len(), array.len());
+	assert_eq!(4, array.capacity());
+	assert_eq!(expected, (0..expected.len()).map(|val| array.get(val).clone()).collect::<Vec<String>>());
+}
+
+#[test]
+fn test_append_remove() {
+	let mut array = DynamicArray::<String>::new();
+	
+	assert_eq!(0, array.len());
+	assert_eq!(2, array.capacity());
+	
+	array.append("1".to_owned());
+	
+	assert_eq!(1, array.len());
+	assert_eq!(2, array.capacity());
+	
+	array.append("2".to_owned());
+	
+	assert_eq!(2, array.len());
+	assert_eq!(2, array.capacity());
+	
+	array.remove();
+	
+	assert_eq!(1, array.len());
+	assert_eq!(2, array.capacity());
+	
+	array.append("2".to_owned());
+	
+	assert_eq!(2, array.len());
+	assert_eq!(2, array.capacity());
+	
+	array.append("3".to_owned());
+	
+	assert_eq!(3, array.len());
+	assert_eq!(4, array.capacity());
+	
+	array.append("4".to_owned());
+	array.append("5".to_owned());
+	
+	assert_eq!(5, array.len());
+	assert_eq!(8, array.capacity());
+	
+	array.remove();
+	
+	assert_eq!(4, array.len());
+	assert_eq!(8, array.capacity());
+	
+	array.remove();
+	
+	assert_eq!(3, array.len());
+	assert_eq!(8, array.capacity());
+	
+	array.remove();
+	
+	assert_eq!(2, array.len());
+	assert_eq!(4, array.capacity());
 }
