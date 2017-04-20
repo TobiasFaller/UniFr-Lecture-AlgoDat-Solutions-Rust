@@ -3,11 +3,14 @@ use std::vec::Vec;
 
 pub fn heap_sort<T>(lst: &mut Vec<T>) where T: Ord {
 	let lst_size: usize = lst.len();
+	if lst_size <= 1 {
+		return;
+	}
 	
 	// Create the initial heap
 	heapify(lst);
 	
-	for index in (1 .. lst_size - 1).rev() {
+	for index in (1 .. lst_size).rev() {
 		// Swap the max to the end
 		lst.swap(0, index);
 		
@@ -54,4 +57,20 @@ fn repair_heap<T>(lst: &mut Vec<T>, mut index: usize, size: usize) where T: Ord 
 		// Repair downwards
 		index = max;
 	}
+}
+
+#[test]
+fn test_normal_sort() {
+	let mut data = vec![5, 10, 3, 1, 2, 564, 874, 21, 454, 12, 5];
+	heap_sort(&mut data);
+	
+	assert_eq!(vec![1, 2, 3, 5, 5, 10, 12, 21, 454, 564, 874], data);
+}
+
+#[test]
+fn test_empty() {
+	let mut data = vec![] as Vec<usize>;
+	heap_sort(&mut data);
+	
+	assert_eq!(vec![] as Vec<usize>, data);
 }
