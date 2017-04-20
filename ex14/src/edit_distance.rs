@@ -62,3 +62,27 @@ pub fn compute_ed_via_table(x: &str, y: &str) -> usize {
 	
 	return array[n][m];
 }
+
+#[test]
+fn test_distance() {
+	assert_eq!(2, compute_ed_recursively("donald", "ronaldo"));
+	assert_eq!(2, compute_ed_via_table("donald", "ronaldo"));
+
+	assert_eq!(2, compute_ed_recursively("grau", "raum"));
+	assert_eq!(2, compute_ed_via_table("grau", "raum"));
+
+	assert_eq!(4, compute_ed_recursively("Hello", "Hi"));
+	assert_eq!(4, compute_ed_via_table("Hello", "Hi"));
+}
+
+#[test]
+fn test_border_cases() {
+	assert_eq!(0, compute_ed_recursively("", ""));
+	assert_eq!(0, compute_ed_via_table("", ""));
+
+	assert_eq!(11, compute_ed_recursively("Hello World", ""));
+	assert_eq!(11, compute_ed_via_table("Hello World", ""));
+
+	assert_eq!(11, compute_ed_recursively("", "Hello World"));
+	assert_eq!(11, compute_ed_via_table("", "Hello World"));
+}
