@@ -44,7 +44,6 @@ impl<T> DynamicArray<T> {
 		let value = self.data.pop();
 		self.size -= 1;
 		
-		println!("Size: {}, Capacity: {}", self.size, self.data.capacity());
 		let capacity = self.data.capacity();
 		if self.size * 3 <= capacity {
 			self.resize(capacity / 2);
@@ -62,8 +61,6 @@ impl<T> DynamicArray<T> {
 		if size == self.data.capacity() {
 			return;
 		}
-		
-		println!("Resizing to {}", size);
 		
 		let mut vec: Vec<T> = Vec::new();
 		vec.reserve_exact(size);
