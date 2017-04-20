@@ -1,5 +1,5 @@
 use std::cell::UnsafeCell;
-use std::cmp::{Ord, Ordering};
+use std::cmp::Ord;
 use std::rc::{Rc, Weak};
 use std::mem;
 use std::vec::Vec;
@@ -9,17 +9,17 @@ pub struct PriorityQueue<K, T> where K: Ord + Clone + Display, T: Clone {
 	elem: Vec<PriorityQueueItem<K, T>>
 }
 
-struct PriorityQueueItem<K, T> where K: Ord + Clone + Display, T: Clone {
-	heap_index: Rc<QueueItemIndex>,
-	key: K,
-	value: T
-}
-
 pub struct Handle<K, T> where K: Ord + Clone + Display, T: Clone {
 	heap_index: Weak<QueueItemIndex>,
 	pq: *const PriorityQueue<K, T>
 }
 
+
+struct PriorityQueueItem<K, T> where K: Ord + Clone + Display, T: Clone {
+	heap_index: Rc<QueueItemIndex>,
+	key: K,
+	value: T
+}
 struct QueueItemIndex {
 	index: UnsafeCell<usize>
 }
@@ -146,6 +146,35 @@ impl<'a, K: 'a, T: 'a> PriorityQueue<K, T> where K: Ord + Clone + Display, T: Cl
 		return true;
 	}
 	
+	pub fn remove(&mut self, handle: &Handle<K, T>) -> bool {
+		if handle.pq != self {
+			return false;
+		}
+		
+		let index: usize;
+		match handle.heap_index.upgrade() {
+			None => {
+				return false;
+			},
+			Some(ptr) => {
+				unsafe {
+					let cell_value = ptr.index.get();
+					index = *cell_value.clone();
+				}
+			}
+		}
+		
+		let last_index = self.elem.len() - 1;
+		swap(&mut self.elem, index, last_index);
+
+		self.repair_heap_down(index);
+		
+		// Actually remove element
+		self.elem.pop();
+
+		return true;
+	}
+	
 	fn repair_heap_up(&mut self, index: usize) {
 		let mut index = index.clone();
 
@@ -201,5 +230,80 @@ fn swap<K, T>(elem: &mut Vec<PriorityQueueItem<K, T>>, a: usize, b: usize) where
 	unsafe {
 		*index_a = a;
 		*index_b = b;
+	}
+}
+
+#[test]
+fn test_general() {
+	let mut q = PriorityQueue::new();
+	q.insert(103, "503");
+	q.insert(100, "500");
+	q.insert(102, "502");
+	q.insert(101, "501");
+	
+	let expected = vec![(100, "500"), (101, "501"), (102, "502"), (103, "503")];
+	
+	for val in expected {
+		match q.pop() {
+			None => {
+				assert!(false);
+			},
+			Some(q_val) => {
+				assert_eq!(val, q_val);
+			}
+		}
+	}
+}
+
+#[test]
+fn test_remove() {
+	let mut q = PriorityQueue::new();
+	q.insert(103, "503");
+	q.insert(100, "500");
+	let item = q.insert(102, "502");
+	q.insert(101, "501");
+	q.insert(104, "504");
+	
+	q.remove(&item);
+	
+	let expected = vec![(100, "500"), (101, "501"), (103, "503"), (104, "504")];
+	
+	for val in expected {
+		match q.pop() {
+			None => {
+				assert!(false);
+			},
+			Some(q_val) => {
+				assert_eq!(val, q_val);
+			}
+		}
+	}
+}
+
+#[test]
+fn test_change_priority() {
+	let mut q = PriorityQueue::new();
+	q.insert(103, "503");
+	q.insert(100, "500");
+	let item = q.insert(102, "502");
+	q.insert(101, "501");
+	q.insert(104, "504");
+	
+	q.change_key(&item, 105);
+	
+	q.insert(106, "506");
+	q.insert(102, "502");
+	
+	let expected = vec![(100, "500"), (101, "501"), (102, "502"), (103, "503"), (104, "504"), (105, "502"), (106, "506")];
+	
+	for val in expected {
+		match q.pop() {
+			None => {
+				assert!(false);
+			},
+			Some(q_val) => {
+				assert_eq!(val, q_val);
+			}
+		}
 	}
 }
