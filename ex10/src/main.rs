@@ -11,7 +11,7 @@ use rand::{Rng, thread_rng};
 use time::get_time;
 
 fn main() {
-	let size: u64 = 2_u64.pow(12); // The maximum size the test might reach
+	let size: u64 = 2_u64.pow(14); // The maximum size the test might reach
     let samples: u64 = 11; // The number of sample points to measure
     
     println!("n\trand\tdepth\tlin\tdepth");
@@ -27,15 +27,15 @@ fn measure_runtime(n: u64) -> (u64, u64, usize, u64, usize) {
 	
 	let start_time = get_time();
 	let mut t1: Box<BinarySearchTree<usize, String>> = box BinarySearchTree::new();
-	for i in rand_data.iter() {
-		t1.insert(*i, String::default());
+	for i in rand_data.into_iter() {
+		t1.insert(i, String::default());
 	}
 	let rand_time = (get_time() - start_time).num_milliseconds() as u64;
 	
 	let start_time = get_time();
 	let mut t2: Box<BinarySearchTree<usize, String>> = box BinarySearchTree::new();
-	for i in lin_data.iter() {
-		t2.insert(*i, String::default());
+	for i in lin_data.into_iter() {
+		t2.insert(i, String::default());
 	}
 	let lin_time = (get_time() - start_time).num_milliseconds() as u64;
 	

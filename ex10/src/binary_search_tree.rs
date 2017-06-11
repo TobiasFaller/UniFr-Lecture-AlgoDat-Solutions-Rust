@@ -1,5 +1,5 @@
-use std::borrow::BorrowMut;
 use std::usize;
+use std::mem;
 use std::fmt::{Display, Formatter, Error as FmtError};
 
 pub struct BinarySearchTree<Key, Value> {
@@ -17,7 +17,6 @@ struct Node<Key, Value> {
 
 impl<Key, Value> Node<Key, Value>
 where Key: PartialOrd + PartialEq + Display, Value: Display {
-	
 	fn new(key: Key, value: Value, parent: Option<*const Option<Box<Node<Key, Value>>>>) -> Node<Key, Value> {
 		Node {
 			key: key,
@@ -29,6 +28,39 @@ where Key: PartialOrd + PartialEq + Display, Value: Display {
 	}
 }
 
+impl<Key, Value> Drop for Node<Key, Value> {
+	fn drop(&mut self) {
+		let mut list = box Vec::new();
+
+		if self.left.is_some() {
+				list.push(remove_child(&mut self.left));
+		}
+		if self.right.is_some() {
+				list.push(remove_child(&mut self.right));
+		}
+
+		// Deallocate children one by one since recursion would blow the (2MB - 20MB) stack
+		while !list.is_empty() {
+			let mut node = list.pop().unwrap();
+
+			if node.left.is_some() {
+				list.push(remove_child(&mut node.left));
+			}
+			if node.right.is_some() {
+				list.push(remove_child(&mut node.right));
+			}
+		}
+	}
+}
+
+fn remove_child<Key, Value>(child: &mut Option<Box<Node<Key, Value>>>) -> Box<Node<Key, Value>> {
+	let mut child_node = None;
+	mem::swap(child, &mut child_node);
+
+	child_node.unwrap()
+}
+
+#[allow(dead_code)]
 impl<Key, Value> BinarySearchTree<Key, Value>
 where Key: PartialOrd + PartialEq + Display, Value: Display {
 	
@@ -44,56 +76,55 @@ where Key: PartialOrd + PartialEq + Display, Value: Display {
 	}
 	
 	pub fn insert(&mut self, key: Key, value: Value) {
-		let mut current: *mut Option<Box<Node<Key, Value>>> = self.root.borrow_mut();
-		let mut parent: Option<*const Option<Box<Node<Key, Value>>>> = None;
+		let mut current: *mut Option<_> = &mut self.root;
+		let mut parent: Option<*const Option<_>> = None;
 		let mut depth: usize = 1;
 		
 		loop {
 			unsafe {
-				match *current {
+				match (*current).as_mut() {
 					None => {
-						*current = Some(box Node::new(key, value, parent));
+						let mut new_value = Some(box Node::new(key, value, parent));
+						mem::swap(&mut *current, &mut new_value);
 						if depth > self.depth {
 							self.depth = depth;
-						} 
+						}
 						return;
 					},
-					Some(ref mut inner) => {
+					Some(inner) => {
 						depth += 1;
 						if inner.key == key {
 							inner.value = value;
 							return;
 						}
-						
+
 						parent = Some(current);
 						if key < inner.key {
-							current = inner.left.borrow_mut();
+							current = &mut inner.left;
 						} else {
-							current = inner.right.borrow_mut();
+							current = &mut inner.right;
 						}
 					}
-				};
+				}
 			}
 		}
 	}
-	
+
 	pub fn lookup(&self, key: Key) -> Option<(Key, &Value)> {
-		let mut current: *const Option<Box<Node<Key, Value>>> = &self.root;
+		let mut current: &Option<Box<Node<Key, Value>>> = &self.root;
 		
 		loop {
-			unsafe {
-				match *current {
-					None => {
-						return None;
-					},
-					Some(box ref inner) => {
-						if inner.key == key {
-							return Some((key, &inner.value));
-						} else if key < inner.key {
-							current = &inner.left;
-						} else {
-							current = &inner.right;
-						}
+			match {current} {
+				&None => {
+					return None;
+				},
+				&Some(box ref inner) => {
+					if inner.key == key {
+						return Some((key, &inner.value));
+					} else if key < inner.key {
+						current = &inner.left;
+					} else {
+						current = &inner.right;
 					}
 				}
 			}
