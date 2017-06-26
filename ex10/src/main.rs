@@ -28,14 +28,14 @@ fn measure_runtime(n: u64) -> (u64, u64, usize, u64, usize) {
 	let start_time = get_time();
 	let mut t1: Box<BinarySearchTree<usize, String>> = box BinarySearchTree::new();
 	for i in rand_data.into_iter() {
-		t1.insert(i, String::default());
+		t1.insert(i, format!("{}", i));
 	}
 	let rand_time = (get_time() - start_time).num_milliseconds() as u64;
 	
 	let start_time = get_time();
 	let mut t2: Box<BinarySearchTree<usize, String>> = box BinarySearchTree::new();
 	for i in lin_data.into_iter() {
-		t2.insert(i, String::default());
+		t2.insert(i, format!("{}", i));
 	}
 	let lin_time = (get_time() - start_time).num_milliseconds() as u64;
 	

@@ -8,6 +8,10 @@ fn calculate_runtime(n: usize) -> usize {
 	return 4 * calculate_runtime(n / 2) + n.pow(2);
 }
 
+fn estimated_runtime(n: usize) -> usize {
+	return n * n * f64::log2(n as f64) as usize;
+}
+
 fn main() {
 	// Define the number of sample points and the maximum input size
 	let samples = 100;
