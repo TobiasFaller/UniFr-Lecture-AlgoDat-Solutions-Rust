@@ -6,3 +6,7 @@ RemoteSystemsTempFiles
 */.settings
 */target
 */Cargo.lock
+
+# Ignore IntelliJ files
+.idea
+*/*.iml

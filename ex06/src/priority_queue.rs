@@ -26,10 +26,7 @@ struct QueueItemIndex {
 
 impl<K, T> Handle<K, T> where K: Ord + Clone + Display, T: Clone {
 	fn new(pq: *const PriorityQueue<K, T>, heap_index: Weak<QueueItemIndex>) -> Handle<K, T> {
-		Handle {
-			heap_index: heap_index,
-			pq: pq
-		}
+		Handle { heap_index, pq }
 	}
 }
 
@@ -50,10 +47,9 @@ impl<'a, K: 'a, T: 'a> PriorityQueue<K, T> where K: Ord + Clone + Display, T: Cl
 		let handle_ptr = Rc::downgrade(&queue_index);
 		
 		// Create new item with last index in our list
-		self.elem.push(PriorityQueueItem {
-				key: key,
-				value: value,
-				heap_index: queue_index
+		self.elem.push(
+			PriorityQueueItem {
+				key, value, heap_index: queue_index
 			});
 		
 		// Repair heap upwards
@@ -221,7 +217,8 @@ impl<'a, K: 'a, T: 'a> PriorityQueue<K, T> where K: Ord + Clone + Display, T: Cl
 	}
 }
 
-fn swap<K, T>(elem: &mut Vec<PriorityQueueItem<K, T>>, a: usize, b: usize) where K: Ord + Clone + Display, T: Clone {
+fn swap<K, T>(elem: &mut Vec<PriorityQueueItem<K, T>>, a: usize, b: usize)
+		where K: Ord + Clone + Display, T: Clone {
 	elem.swap(a, b);
 	
 	let mut index_a = elem[a].heap_index.index.get();
@@ -294,7 +291,8 @@ fn test_change_priority() {
 	q.insert(106, "506");
 	q.insert(102, "502");
 	
-	let expected = vec![(100, "500"), (101, "501"), (102, "502"), (103, "503"), (104, "504"), (105, "502"), (106, "506")];
+	let expected = vec![(100, "500"), (101, "501"), (102, "502"), (103, "503"),
+						(104, "504"), (105, "502"), (106, "506")];
 	
 	for val in expected {
 		match q.pop() {

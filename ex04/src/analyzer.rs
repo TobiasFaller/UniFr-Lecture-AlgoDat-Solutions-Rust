@@ -68,16 +68,16 @@ impl StdError for Error {
 }
 
 pub fn read_info_from_file(name: &str) -> Result<Vec<(String, String)>, Error> {
-	let file = try!(File::open(name));
-	let mut archive = try!(ZipArchive::new(file));
+	let file = File::open(name)?;
+	let mut archive = ZipArchive::new(file)?;
 	
 	let mut cities: Vec<(String, String)> = Vec::new();
 	cities.reserve(20000);
 	
 	for index in 0 .. archive.len() {
-		let entry = try!(archive.by_index(index));
+		let entry = archive.by_index(index)?;
 		let buf = BufReader::new(entry);
-		try!(read_lines(buf, &mut cities));
+		read_lines(buf, &mut cities)?;
 	}
 	
 	Ok(cities)
@@ -85,14 +85,14 @@ pub fn read_info_from_file(name: &str) -> Result<Vec<(String, String)>, Error> {
 
 fn read_lines<R: BufRead>(buf: R, cities: &mut Vec<(String, String)>) -> Result<(), Error> {
 	for line_res in buf.lines() {
-		let line = try!(line_res);
+		let line = line_res?;
 		
 		let parts: Vec<&str> = line.split('\t').collect();
 		if parts.len() < 15 {
 			continue;
 		}
 		
-		if parts[6] == "P" && try!(parts[14].parse::<i64>()) > 0 {
+		if parts[6] == "P" && parts[14].parse::<i64>()? > 0 {
 			cities.push((parts[1].to_owned(), parts[8].to_owned()));
 		}
 	}
@@ -100,7 +100,8 @@ fn read_lines<R: BufRead>(buf: R, cities: &mut Vec<(String, String)>) -> Result<
 	Ok(())
 }
 
-pub fn compute_most_frequent_city_by_sorting(mut cities: Vec<(String, String)>) -> Vec<(String, usize)> {
+pub fn compute_most_frequent_city_by_sorting(mut cities: Vec<(String, String)>)
+		-> Vec<(String, usize)> {
 	let length = cities.len();
 	if length == 0 {
 		return Vec::new();
@@ -123,7 +124,8 @@ pub fn compute_most_frequent_city_by_sorting(mut cities: Vec<(String, String)>) 
 	}
 	
 	names.push((cities[length - 1].0.to_owned(), count));
-	names.sort_by(|a, b| b.1.cmp(&a.1).then(b.0.cmp(&a.0).reverse()));
+	names.sort_by(|a, b| b.1.cmp(&a.1)
+		.then(b.0.cmp(&a.0).reverse()));
 	
 	return names;
 }
@@ -153,12 +155,14 @@ pub fn compute_most_frequent_city_by_map(cities: &Vec<(String, String)>) -> Vec<
 	for (name, count) in map.drain() {
 		names.push((name.to_owned(), count));
 	}
-	names.sort_by(|a, b| b.1.cmp(&a.1).then(b.0.cmp(&a.0).reverse()));
+	names.sort_by(|a, b| b.1.cmp(&a.1)
+		.then(b.0.cmp(&a.0).reverse()));
 	
 	return names;
 }
 
-pub fn compute_most_frequent_city_by_sorting_in_de(mut cities: Vec<(String, String)>) -> Vec<(String, usize)> {
+pub fn compute_most_frequent_city_by_sorting_in_de(mut cities: Vec<(String, String)>)
+		-> Vec<(String, usize)> {
 	let length = cities.len();
 	if length == 0 {
 		return Vec::new();
@@ -190,12 +194,14 @@ pub fn compute_most_frequent_city_by_sorting_in_de(mut cities: Vec<(String, Stri
 		names.push((cities[length - 1].0.to_owned(), count));
 	}
 	
-	names.sort_by(|a, b| b.1.cmp(&a.1).then(b.0.cmp(&a.0).reverse()));
+	names.sort_by(|a, b| b.1.cmp(&a.1)
+		.then(b.0.cmp(&a.0).reverse()));
 	
 	return names;
 }
 
-pub fn compute_most_frequent_city_by_map_in_de(cities: &Vec<(String, String)>) -> Vec<(String, usize)> {
+pub fn compute_most_frequent_city_by_map_in_de(cities: &Vec<(String, String)>)
+		-> Vec<(String, usize)> {
 	let length = cities.len();
 	if length == 0 {
 		return Vec::new();
@@ -224,7 +230,8 @@ pub fn compute_most_frequent_city_by_map_in_de(cities: &Vec<(String, String)>) -
 		}
 	}
 	
-	names.sort_by(|a, b| b.1.cmp(&a.1).then(b.0.cmp(&a.0).reverse()));
+	names.sort_by(|a, b| b.1.cmp(&a.1)
+		.then(b.0.cmp(&a.0).reverse()));
 	
 	return names;
 }
@@ -244,7 +251,11 @@ fn test_analyzer() {
 		let cities_map = compute_most_frequent_city_by_map(&data);
 		let cities_sort = compute_most_frequent_city_by_sorting(data);
 		
-		let expected = vec![("Köln".to_owned(), 4_usize), ("Freiburg".to_owned(), 3_usize), ("Fruiburg".to_owned(), 3_usize)];
+		let expected = vec![
+			("Köln".to_owned(), 4_usize),
+			("Freiburg".to_owned(), 3_usize),
+			("Fruiburg".to_owned(), 3_usize)
+		];
 		
 		assert_eq!(expected, cities_map[..3].to_vec());
 		assert_eq!(expected, cities_sort[..3].to_vec());
@@ -260,7 +271,11 @@ fn test_analyzer_de() {
 		let cities_sort = compute_most_frequent_city_by_sorting_in_de(data);
 		
 		// Now 'Fruiburg' is outnumbered by 'Friburg'
-		let expected = vec![("Köln".to_owned(), 4_usize), ("Freiburg".to_owned(), 3_usize), ("Friburg".to_owned(), 2_usize)];
+		let expected = vec![
+			("Köln".to_owned(), 4_usize),
+			("Freiburg".to_owned(), 3_usize),
+			("Friburg".to_owned(), 2_usize)
+		];
 		
 		assert_eq!(expected, cities_map[..3].to_vec());
 		assert_eq!(expected, cities_sort[..3].to_vec());
